@@ -22,7 +22,7 @@ const main = async () => {
         console.log("actionResponse", actionResponse);
         
         if(actionResponse.action == "export") {
-            const forms = await typeform.forms.list({ page: "auto" });
+            const forms = await typeform.forms.list({ page: "auto" }); //array of Form Partials
             const formChoices = forms.map( (form) => ({ name: form.title, value: form.id }) );
             const formSelectResponse = await inquirer.prompt(
                 {
@@ -35,9 +35,11 @@ const main = async () => {
             console.log("formSelectResponse", formSelectResponse);
 
             const selectedFormId = formSelectResponse.form.id;
-            const selectedForm = forms.find((element) => element.id == selectedFormId);
+            const selectedForm = await typeform.forms.get({form_id: selectedFormId});
             const selectedFormData = selectedForm.fields;            
             console.log("selectedFormData", selectedFormData);
+
+            const database = await notion.databases.create({title: selectedForm.title, properties: ""});
         }
     }
 };
