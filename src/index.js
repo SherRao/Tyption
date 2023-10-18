@@ -1,9 +1,10 @@
 import { createClient as createTypeformClient } from "@typeform/api-client";
 import { Client as NotionClient } from "@notionhq/client";
 import inquirer from "inquirer";
+import "dotenv/config";
 
-const notion = new NotionClient({ auth: process.env.VITE_NOTION_TOKEN });
-const typeform = createTypeformClient({ token: process.env.VITE_TYPEFORM_TOKEN });
+const notion = new NotionClient({ auth: process.env.NOTION_TOKEN });
+const typeform = createTypeformClient({ token: process.env.TYPEFORM_TOKEN });
 const running = true;
 
 const main = async () => {
@@ -13,16 +14,15 @@ const main = async () => {
                 type: "list",
                 name: "action",
                 message: "❓ What do you want to do?",
-                choices: [ 
+                choices: [
                     { name: "Export Table From Typeform to Notion", value: "export" },
-                    { name: "Random merch giveaway selection", value: "rng" } 
+                    { name: "Random merch giveaway selection", value: "rng" }
                 ]
             }
         );
-        console.log("actionResponse", actionResponse);
-        
+
         if(actionResponse.action == "export") {
-            const forms = await typeform.forms.list({ page: "auto" }); //array of Form Partials
+            const forms = (await typeform.forms.list()).items; //array of Form Partials
             const formChoices = forms.map( (form) => ({ name: form.title, value: form.id }) );
             const formSelectResponse = await inquirer.prompt(
                 {
@@ -32,16 +32,45 @@ const main = async () => {
                     choices: formChoices
                 }
             );
-            console.log("formSelectResponse", formSelectResponse);
+            const selectedFormId = formSelectResponse.form;
+            const selectedForm = await typeform.forms.get({ uid: selectedFormId });
+            const selectedFormData = selectedForm.fields;
 
-            const selectedFormId = formSelectResponse.form.id;
-            const selectedForm = await typeform.forms.get({form_id: selectedFormId});
-            const selectedFormData = selectedForm.fields;            
-            console.log("selectedFormData", selectedFormData);
+            const tableData = {};
 
-            const database = await notion.databases.create({title: selectedForm.title, properties: ""});
+            // const database = await notion.pages.create(
+            //     {
+            //         parent: { database_id: process.env.NOTION_PAGE_ID },
+            //         properties: columnTitles
+            //     }
+            // );
+
+            // console.log(database);
         }
     }
+};
+
+const createNewTable = async (parentPageId) => {
+    const response = await notion.pages.create({
+        parent: { database_id: parentPageId },
+        properties: {}
+    });
+
+    return response;
+};
+
+const addDataToTable = async (databaseId, row) => {
+    const finalData = {};
+    for(const data of row) {
+        finalData[data.title] = data.value;
+    }
+
+    const response = await notion.pages.create({
+        parent: { database_id: databaseId },
+        properties: finalData
+    });
+
+    return response;
 };
 
 main();
